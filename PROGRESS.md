@@ -17,8 +17,8 @@ Late: <1 day −10% of 100 · 1–2 days −20% · ≥2 days zero.
 
 ## Current state
 
-**Stage:** S2 — EDA, **code done, my interpretations still to write**
-**Last commit:** see `git log -1` (S2 EDA code)
+**Stage:** S4 — baselines, **code done, my interpretations still to write**
+**Last commit:** see `git log -1` (S3 cleaning + S4 baselines)
 **Working files:** `PhishGuard.ipynb`, `requirements.txt`, `PROGRESS.md`, `CLAUDE.md`
 
 Standalone git repo initialised here on branch `main`, author `TharHtet-Zaw`
@@ -29,10 +29,10 @@ This folder is git-ignored by the vault repo so the two never collide.
 recreate with `python -m venv .venv && ./.venv/Scripts/python.exe -m pip install -r
 requirements.txt`). Run the notebook with the `.venv` kernel.
 
-`PhishGuard.ipynb` (59 cells) is built on the submission template's numbering. All code
-through §3.2 (load → EDA → split) is written and **verified to run top-to-bottom**; every
-analysis/rationale cell is a `> **TODO (my own words):**` prompt — those are mine to
-write, not Claude's. Sections 4 and 5 are still `## TODO` code stubs.
+`PhishGuard.ipynb` (61 cells) is built on the submission template's numbering. All code
+through §4.2 (load → EDA → clean → split → baselines) is written and **verified to run
+top-to-bottom**; every analysis/rationale cell is a `> **TODO (my own words):**` prompt —
+those are mine to write, not Claude's. Section 5 is still `## TODO` code stubs.
 
 Verify the notebook runs with the scratchpad runner `run_nb.py` (execs every code cell in
 one namespace, reports the first failure) — `nbconvert` is deliberately **not** in
@@ -48,11 +48,13 @@ again, re-check before trusting an id-targeted edit.
 
 Two tracks, in parallel — the writing is mine, the code is not:
 
-1. **Mine (blocking S2/S1 sign-off):** write the four `TODO (my own words)` cells now
-   populated with findings — §1 business framing + assumptions, §2.2 cardinality,
-   §2.3.1.1 class balance, §2.3.1.2 feature interpretation, §2.3.2 correlation.
-2. **Next code stage: S3** — but it is blocked on the duplicates decision (Decision #5).
-   Recommendation is **drop** (see the reason column). Decide, then S4 baselines.
+1. **Mine (blocks S1–S4 sign-off):** write the `TODO (my own words)` cells, all of which
+   are now pre-loaded with the actual measured findings — §1 business framing +
+   assumptions, §2.2 cardinality, §2.3.1.1 class balance, §2.3.1.2 feature
+   interpretation, §2.3.2 correlation, §3.1 duplicate decision, §4.2 model comparison.
+2. **Next code stage: S5** — feature selection (RF importances × mutual information) on
+   the canonical deduplicated split. Prediction to check: `Favicon`, `popUpWidnow` and
+   `Iframe` should rank last (Decision #8). Then S6 tuning, S7 final eval.
 
 ---
 
@@ -72,8 +74,12 @@ Tick only when committed. Each stage = one commit, message in the format
       _Code committed and verified. **Not tickable until I write the interpretation
       cells** — the 8 marks are for the interpretation, not the plots._
 - [ ] **S3 Data prep** — dtype/missing checks, stratified train/test split.
+      _Code committed. Both dataset variants built + split; leakage measured directly.
+      Not tickable until I write the §3.1 duplicate argument._
 - [ ] **S4 Baselines** — `DummyClassifier` + LogisticRegression + RandomForest +
       GradientBoosting on **all 30 features**. Metrics table saved to `artifacts/`.
+      _Code committed, run on **both** variants. Not tickable until I write the §4.2
+      quantitative + qualitative comparison._
 - [ ] **S5 Feature selection** — RF importances × `SelectKBest(mutual_info_classif)`,
       cross-checked. Re-run the 3 models on the reduced set. Before/after table.
 - [ ] **S6 Tuning** — `RandomizedSearchCV`, exactly 2 hyperparameters, ≤3 values each,
@@ -104,9 +110,13 @@ _Exists: `feature_level_rates.csv`._
 
 ## Links
 
-- GitHub repo: `https://github.com/TharHtet-Zaw/phishguard` — **not created/pushed yet**;
-  waiting on `gh` install + `gh auth login`. Local commits are safe meanwhile.
-- Streamlit app: _TBD (S8) — needs the GitHub repo public first_
+- GitHub repo: `https://github.com/TharHtet-Zaw/phishguard` — **created and pushed**,
+  `origin/main` tracking. Deliberately **private** for now: the repo tracks TP's spec PDF
+  and submission template (redistributing course material), and a public coursework repo
+  before the deadline lets a classmate copy it, which implicates me too. Flip at S9 with
+  `gh repo edit --visibility public --accept-visibility-change-consequences`.
+- Streamlit app: _TBD (S8). Streamlit Community Cloud deploys from private repos, so
+  this is not blocked by the visibility choice above._
 - Dataset source: UCI Phishing Websites, id=327 — https://archive.ics.uci.edu/dataset/327/phishing+websites
 
 ---
@@ -126,17 +136,20 @@ session boundary, not just the code.
 | 4 | Metric argument rests on **cost asymmetry, not class imbalance** | Actual split is 6157 legitimate / 4898 phishing = 1.26:1 — near balanced, so imbalance does *not* rule out accuracy. The case for recall is that a false negative lands a user on a credential-harvesting page while a false positive costs one dismissed warning. Do **not** say "the data was imbalanced so I used recall" at the demo | pre-S0 |
 | 6 | EDA screens features by **conditional phishing rate per level ("spread"), not marginal distribution** | A bar chart of a {-1,1} column shows two bars and says nothing. `P(phishing \| level)` vs the 44.3% base rate is the quantity that actually carries information, and it produces the ranking S5 later has to agree with or explain away | S2 |
 | 7 | The high correlations in the heatmap are an **artefact of skew, not redundancy** | The top 8 pairs (`popUpWidnow`↔`Favicon` ρ=0.94, etc.) are all between features where 81–87% of rows sit in one level. Two near-constant columns correlate whatever they measure. Nothing in the *informative* tier is mutually correlated — `SSLfinal_State` and `URL_of_Anchor` hit 0.74/0.70 against the target but not each other, so there is no multicollinearity problem to fix | S2 |
+| 9 | **Duplicates: RESOLVED — deduplicate, and keep the kept-duplicates run as evidence** | `df_dedup` (5,849 rows) is canonical for 5.x onward; `df_kept` is run once at S4 purely to quantify the difference. Measured, not assumed: **65.8%** of test rows have an identical twin in train when duplicates are kept, vs **1.8%** deduplicated. Supersedes the open half of Decision #5 | S3 |
+| 10 | **The leakage inflation is model-specific — this is the demo-worthy finding** | LR and GB move ≤0.2pp on recall; only RandomForest inflates (recall 0.9612→0.9404, accuracy 0.9742→0.9419). An unpruned forest can memorise individual rows, so duplicate twins reward it specifically. Corroborated by RF's train/test gap *growing* 0.016→0.049 after dedup: deduplication did not hurt RF, it **revealed** overfitting the duplicates were masking. Do not say "leakage inflates all scores" — it doesn't, and that's the interesting part | S4 |
+| 11 | **Deduplication flips the majority class** | Kept = 55.7% legitimate; deduped = 51.6% *phishing*. So `DummyClassifier` flips from phishing recall 0.00 to **1.00** (accuracy 0.52). A baseline with perfect recall is the cleanest argument for reporting precision/recall/F1 together instead of optimising recall alone — use it in §5 | S4 |
+| 12 | `pos_label=-1` **everywhere** in metrics | "Positive" must mean *phishing*, the class whose misses are expensive. sklearn defaults to `1`, which here is *legitimate* — so an unset `pos_label` silently reports recall for the wrong class and the whole §1 cost argument stops matching the numbers | S4 |
 | 8 | **Three features are provably dead**: `Favicon`, `popUpWidnow`, `Iframe` | Their phishing rate equals the base rate at *every* level (spread 0.000, 0.0001, 0.006) — zero univariate signal. Predicts what S5 should find; if RF importance or mutual information disagrees, that needs explaining, not ignoring. Caveat for the demo: flat ≠ skewed. `Prefix_Suffix` is 87% one level and still has spread 0.51 | S2 |
 
 ## Open questions / blockers
 
-1. ~~GitHub repo strategy~~ — resolved: standalone repo, separate from the vault. Remote
-   still needs creating once `gh` is installed and authenticated.
+1. ~~GitHub repo strategy~~ — resolved: standalone private repo, pushed 28 Jul. `gh` was
+   already installed and authenticated; the earlier note claiming otherwise was stale.
 2. **Schedule risk — as of 28 Jul there are 3 days to the 31 Jul 5pm Program Code
-   deadline**, with S1–S9 outstanding including a *deployed* Streamlit app and the Word
-   doc. S8 has an external dependency (GitHub repo must exist and be public before
-   Streamlit Cloud can deploy) and `gh` is still not installed — that is the single most
-   likely thing to blow the deadline. Get the repo pushed early, not at S8.
+   deadline.** S5–S9 outstanding including a *deployed* Streamlit app and the Word doc,
+   plus every `TODO (my own words)` cell. The external dependency (GitHub) is now
+   cleared, so the critical path is my writing plus the S8 deploy.
 3. **Exact student name as it appears in TP-LMS** — still unconfirmed. Needed for the zip
    filename (`<TP-LMS name>_2503051A.zip`) and the Declaration of Originality in *both*
    the notebook and the Word doc. Likely "Thar Htet Zaw" (from the GitHub handle

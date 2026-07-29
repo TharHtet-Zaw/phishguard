@@ -17,8 +17,8 @@ Late: <1 day −10% of 100 · 1–2 days −20% · ≥2 days zero.
 
 ## Current state
 
-**Stage:** S6 — hyperparameter tuning, **code done, my interpretations still to write**
-**Last commit:** see `git log -1` (S6 tuning)
+**Stage:** S7 — final evaluation, **code done, my interpretations still to write**
+**Last commit:** see `git log -1` (S7 final evaluation)
 **Working files:** `PhishGuard.ipynb`, `requirements.txt`, `PROGRESS.md`, `CLAUDE.md`
 
 Standalone git repo initialised here on branch `main`, author `TharHtet-Zaw`
@@ -29,11 +29,12 @@ This folder is git-ignored by the vault repo so the two never collide.
 recreate with `python -m venv .venv && ./.venv/Scripts/python.exe -m pip install -r
 requirements.txt`). Run the notebook with the `.venv` kernel.
 
-`PhishGuard.ipynb` (65 cells) is built on the submission template's numbering. All code
-through §5.2 (load → EDA → clean → split → baselines → feature selection → tuning) is
-written and **verified to run top-to-bottom**; every analysis/rationale cell is a
-`> **TODO (my own words):**` prompt — those are mine to write, not Claude's. §5 evaluation
-(`## Evaluate model`) and §5.3 final model are still `## TODO` code stubs.
+`PhishGuard.ipynb` (70 cells) is built on the submission template's numbering.
+**All notebook code is now written and verified to run top-to-bottom** — load → EDA →
+clean → split → baselines → feature selection → tuning → threshold → final eval → pickle.
+No `## TODO` code stubs remain. Every analysis/rationale cell is a
+`> **TODO (my own words):**` prompt — those are mine to write, not Claude's, and they are
+now the only thing standing between here and a finished notebook.
 
 A full top-to-bottom run now takes ~2 min: the §5.1 CV sweep is 450 model fits (k = 1..30
 × 3 models × 5 folds) and accounts for ~100s of it.
@@ -52,20 +53,24 @@ again, re-check before trusting an id-targeted edit.
 
 Two tracks, in parallel — the writing is mine, the code is not:
 
-1. **Mine (blocks S1–S6 sign-off):** write the `TODO (my own words)` cells, all of which
-   are now pre-loaded with the actual measured findings — §1 business framing +
-   assumptions, §2.2 cardinality, §2.3.1.1 class balance, §2.3.1.2 feature
-   interpretation, §2.3.2 correlation, §3.1 duplicate decision, §4.2 model comparison,
-   §5.1 feature-selection rationale (10 marks — the largest single row), §5.2 tuning.
+1. **Mine (blocks S1–S7 sign-off, and it is now the whole critical path for the
+   notebook):** write the `TODO (my own words)` cells, all of which are pre-loaded with
+   the actual measured findings — §1 business framing + assumptions, §2.2 cardinality,
+   §2.3.1.1 class balance, §2.3.1.2 feature interpretation, §2.3.2 correlation, §3.1
+   duplicate decision, §4.2 model comparison, §5 metric selection, §5.1 feature-selection
+   rationale (10 marks — the largest single row), §5.2 tuning, §5.3 final write-up.
+   **§1 is now load-bearing for code too:** `FN_TO_FP_COST = 5` in §5.3 sets the decision
+   threshold, and therefore what the app warns on. If §1's cost argument lands somewhere
+   else, change that one line and re-run §5.3 (1:1 → t=0.51, 3:1 → t=0.27, 10:1 → t=0.05).
    **§4.2 is now load-bearing for code, not just prose:** `SELECTED_MODEL` in §5.1 is
    hard-coded to `GradientBoosting`. If the §4.2 argument lands on a different model,
    change that one constant and re-run §5.1 onward — the chosen `k` is model-specific
    (16 for GB, 21 for RF, 8 for LR).
-2. **Next code stage: S7** — final evaluation of the tuned GradientBoosting:
-   classification report + confusion matrix, **decision-threshold tuning on
-   `predict_proba`** (chosen by CV on train, reported once on test — this is the right
-   lever for the recall/precision trade, see Decision #19), then pickle the model + the
-   16-feature list for the app. Then S8 Streamlit (inputs = the 16 features only).
+2. **Next code stage: S8 — the Streamlit app, and it is the schedule risk.** `app.py`
+   loads `artifacts/final_model.pkl`, which already carries the model, the 16-feature
+   list *in training column order*, and the threshold. 16 inputs, input validation with
+   user-facing errors, then deploy to Streamlit Community Cloud from the private repo and
+   record the link below. Then S9 (Word doc, screenshots, zip).
 
 ---
 
@@ -101,6 +106,9 @@ Tick only when committed. Each stage = one commit, message in the format
       **CV improved, test did not** — see Decision #18. Not tickable until I write §5.2._
 - [ ] **S7 Final evaluation** — precision/recall/F1/confusion matrix, metric
       justification, assumptions stated. Model + feature list pickled to `artifacts/`.
+      _Code committed and verified. Decision threshold **0.08** (Decision #19/#20): test
+      recall **0.9901**, precision 0.8592, 6 of 604 phishing sites missed. Not tickable
+      until I write §5 metric selection + §5.3._
 - [ ] **S8 Streamlit app** — `app.py`, inputs = selected features only, input
       validation + user-facing error messages. Deployed, link recorded below.
 - [ ] **S9 Submission** — Word doc (template), 3 screenshots, git-history screenshots,
@@ -121,10 +129,11 @@ Anything expensive gets written to `artifacts/` so a resumed session never re-ru
 | `artifacts/selected_features.json` | S5 | final feature list, the selection rule, dropped list |
 | `artifacts/reduced_metrics.csv` | S5 | same models on reduced set (before/after pair) |
 | `artifacts/search_results.csv` | S6 | full `cv_results_` table from RandomizedSearchCV |
-| `artifacts/final_model.pkl` | S7 | fitted model the Streamlit app loads |
+| `artifacts/threshold_curve.csv` | S7 | out-of-fold precision/recall/FN/FP at t = 0.05…0.95 |
+| `artifacts/final_metrics.csv` | S7 | test metrics at t = 0.50 vs the chosen threshold |
+| `artifacts/final_model.pkl` | S7 | dict: fitted model **+ feature list in column order + threshold** + metadata — the app needs all three, and a column-order mismatch fails silently |
 
-_Exists: `feature_level_rates.csv`, `baseline_metrics.csv`, `feature_ranking.csv`,
-`feature_sweep.csv`, `selected_features.json`, `reduced_metrics.csv`._
+_All ten exist; the notebook rewrites them on a full run._
 
 ## Links
 
@@ -165,6 +174,8 @@ session boundary, not just the code.
 | 17 | **The two hyperparameters were chosen by measurement, not by habit** | The spec caps tuning at 2 parameters × 3 values, so *which two* is the decision. Scanned one-at-a-time on the same CV folds, everything else at default: `learning_rate` spread **0.0126**, `max_depth` **0.0115**, `n_estimators` 0.0034, `subsample` 0.0021. Searched as pairs, `max_depth`×`learning_rate` reaches 0.9491, beating every other pair. Boundary checked too — extending to depth {3,5,8,12} × lr {0.1,0.2,0.3,0.5} scores *worse* everywhere (0.9375 at depth 8, 0.9339 at depth 12/lr 0.2), so the corner optimum is a real interior peak, not a grid wall. The scan itself is **not** in the notebook (it would look like a 4-parameter search and violate the cap); the numbers live here and in the §5.2 markdown | S6 |
 | 18 | **Tuning improved CV and regressed on test — report it, don't bury it** | Best CV F1 0.9426 → **0.9491** (+0.65pp) at `max_depth=5, learning_rate=0.2`. Test: F1 0.9474 → 0.9421, accuracy −0.60pp, precision −1.41pp, recall **+0.33pp**, train−test gap 0.0013 → **0.0346** (27×). Mean train F1 0.9489 → 0.9786. Same failure mode as RandomForest in §4.2: the higher score is memorisation. Both moves are ≈1 SE, so the claim is "tuning produced no real improvement", not "tuning made it worse". **Do not swap back to the untuned model on the strength of the test table** — that is selecting on the test set, the exact error §5.1 avoided when choosing `k`. If it is swapped, the reason must be the train−test gap, which is visible without test metrics | S6 |
 | 19 | **The decision threshold, not the hyperparameters, is the lever for the recall/precision trade** | Hyperparameters move precision and recall together and unpredictably — S6 is the proof. `predict_proba` with a moved threshold trades them against each other on purpose, which is what a recall-prioritised brief actually calls for. S7 picks the threshold by CV on the training split and reports it once on test. This is also what makes §1's cost argument operational instead of decorative | S6 |
+| 20 | **Operating point: threshold 0.08, from `FN_TO_FP_COST = 5`** | Chosen on out-of-fold *training* probabilities (`cross_val_predict`), never on test — same discipline as the §5.1 `k` choice. Test result: recall 0.9421 → **0.9901** (35 → **6** of 604 phishing sites missed), precision 0.9421 → 0.8592 (35 → 98 false alarms), accuracy 0.9402 → 0.9111. Sensitivity is in the notebook and matters at the demo: 1:1 → t=0.51 (i.e. sklearn's default is what "no asymmetry" gives), 3:1 → t=0.27, 10:1 → t=0.05. The 5 is an *assumption from §1*, not something the data supports — say so before being asked | S7 |
+| 21 | **Two feature encodings run backwards from the dataset documentation** | `Domain_registeration_length` codes 1 as ">1 year registered", the nominally legitimate level, but that level is **60.2%** phishing vs 36.4% for the short-registration level. `SSLfinal_State` is non-monotone: the "suspicious" middle level 0 is **98.2%** phishing, worse than "no HTTPS" at 85.8%. Both hold on the full 11,055 rows, so it is not a dedup artefact. Found via the §5.3 smoke-test row, which is built from measured per-level phishing rates rather than by hand — which is why it surfaced at all. Retrospectively justifies Decision #6 | S7 |
 | 16 | **Feature selection held performance; it did not improve it** | GB on 16 features vs 30: F1 0.9474 vs 0.9475, accuracy identical at 0.9462, recall −0.0017, precision +0.0015. Do **not** claim selection made the model better. The two real gains are the train−test gap (0.0062 → **0.0013**, 5× tighter) and 14 fewer inputs for the Streamlit user. Note the cut is flat, not knife-edge: k=13 scores 0.9409 against a 0.9410 threshold, and the curve is level from ~13 to 30 — claiming 16 is *optimal* would be false precision | S5 |
 
 ## Open questions / blockers

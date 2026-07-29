@@ -17,8 +17,8 @@ Late: <1 day −10% of 100 · 1–2 days −20% · ≥2 days zero.
 
 ## Current state
 
-**Stage:** S5 — feature selection, **code done, my interpretations still to write**
-**Last commit:** see `git log -1` (S5 feature selection)
+**Stage:** S6 — hyperparameter tuning, **code done, my interpretations still to write**
+**Last commit:** see `git log -1` (S6 tuning)
 **Working files:** `PhishGuard.ipynb`, `requirements.txt`, `PROGRESS.md`, `CLAUDE.md`
 
 Standalone git repo initialised here on branch `main`, author `TharHtet-Zaw`
@@ -29,11 +29,11 @@ This folder is git-ignored by the vault repo so the two never collide.
 recreate with `python -m venv .venv && ./.venv/Scripts/python.exe -m pip install -r
 requirements.txt`). Run the notebook with the `.venv` kernel.
 
-`PhishGuard.ipynb` (64 cells) is built on the submission template's numbering. All code
-through §5.1 (load → EDA → clean → split → baselines → feature selection) is written and
-**verified to run top-to-bottom**; every analysis/rationale cell is a
-`> **TODO (my own words):**` prompt — those are mine to write, not Claude's. §5.2 tuning
-and §5.3 final model are still `## TODO` code stubs.
+`PhishGuard.ipynb` (65 cells) is built on the submission template's numbering. All code
+through §5.2 (load → EDA → clean → split → baselines → feature selection → tuning) is
+written and **verified to run top-to-bottom**; every analysis/rationale cell is a
+`> **TODO (my own words):**` prompt — those are mine to write, not Claude's. §5 evaluation
+(`## Evaluate model`) and §5.3 final model are still `## TODO` code stubs.
 
 A full top-to-bottom run now takes ~2 min: the §5.1 CV sweep is 450 model fits (k = 1..30
 × 3 models × 5 folds) and accounts for ~100s of it.
@@ -52,18 +52,20 @@ again, re-check before trusting an id-targeted edit.
 
 Two tracks, in parallel — the writing is mine, the code is not:
 
-1. **Mine (blocks S1–S5 sign-off):** write the `TODO (my own words)` cells, all of which
+1. **Mine (blocks S1–S6 sign-off):** write the `TODO (my own words)` cells, all of which
    are now pre-loaded with the actual measured findings — §1 business framing +
    assumptions, §2.2 cardinality, §2.3.1.1 class balance, §2.3.1.2 feature
    interpretation, §2.3.2 correlation, §3.1 duplicate decision, §4.2 model comparison,
-   §5.1 feature-selection rationale (10 marks — the largest single row).
+   §5.1 feature-selection rationale (10 marks — the largest single row), §5.2 tuning.
    **§4.2 is now load-bearing for code, not just prose:** `SELECTED_MODEL` in §5.1 is
    hard-coded to `GradientBoosting`. If the §4.2 argument lands on a different model,
    change that one constant and re-run §5.1 onward — the chosen `k` is model-specific
    (16 for GB, 21 for RF, 8 for LR).
-2. **Next code stage: S6** — `RandomizedSearchCV` on GradientBoosting over the 16
-   selected features. Exactly 2 hyperparameters, ≤3 values each (hard spec constraint).
-   Then S7 final eval, S8 Streamlit app (inputs = the 16 selected features only).
+2. **Next code stage: S7** — final evaluation of the tuned GradientBoosting:
+   classification report + confusion matrix, **decision-threshold tuning on
+   `predict_proba`** (chosen by CV on train, reported once on test — this is the right
+   lever for the recall/precision trade, see Decision #19), then pickle the model + the
+   16-feature list for the app. Then S8 Streamlit (inputs = the 16 features only).
 
 ---
 
@@ -95,6 +97,8 @@ Tick only when committed. Each stage = one commit, message in the format
       CV F1 inside the training split. Not tickable until I write the §5.1 rationale._
 - [ ] **S6 Tuning** — `RandomizedSearchCV`, exactly 2 hyperparameters, ≤3 values each,
       on the selected model. Tuned vs untuned table.
+      _Code committed and verified. `max_depth` × `learning_rate`, best (5, 0.2).
+      **CV improved, test did not** — see Decision #18. Not tickable until I write §5.2._
 - [ ] **S7 Final evaluation** — precision/recall/F1/confusion matrix, metric
       justification, assumptions stated. Model + feature list pickled to `artifacts/`.
 - [ ] **S8 Streamlit app** — `app.py`, inputs = selected features only, input
@@ -158,6 +162,9 @@ session boundary, not just the code.
 | 13 | **`k` is chosen by a 1-SE rule on CV inside the training split, never by test score** | The two rankings order the features; they do not say where to cut. Re-scoring the test set at each `k` would pick the cut that flatters the test set, and the before/after table would then be comparing a tuned "after" against an untuned "before". So: 5-fold CV *within* train, take the smallest `k` within one standard error of the best. Result **k = 16**, F1 0.9452 best at k=30, SE 0.0042, threshold 0.9410 | S5 |
 | 14 | **Cut on F1, not on recall** — even though the project prioritises recall | By recall alone the same rule keeps only **k = 5** (CV recall 0.9354 at k=5 vs 0.9395 at k=30). Features 6–16 buy *precision*, not recall. Recall alone is gameable — §4.1's dummy scores 1.000 on it — so a feature set sized to maximise recall is sized to maximise a number a useless model already wins. This is the S5 answer to "why not just take five features?" | S5 |
 | 15 | **S5 confirmed the S2 prediction, and the prediction was recorded first** | `Favicon` (mean rank 24.5), `popUpWidnow` (24.0), `Iframe` (29.0) all landed in the bottom seven of 30 — Decision #8 was written at S2 from conditional phishing rates alone and survived two model-based rankings. The two rankings agree overall (Spearman ρ = **0.899**); the four real disagreements (`Submitting_to_email` RF 21 vs MI 30, `Shortining_Service` 24 vs 15, `Abnormal_URL` 23 vs 14, `Statistical_report` 19 vs 12) are all below the cut, so nothing rides on them | S5 |
+| 17 | **The two hyperparameters were chosen by measurement, not by habit** | The spec caps tuning at 2 parameters × 3 values, so *which two* is the decision. Scanned one-at-a-time on the same CV folds, everything else at default: `learning_rate` spread **0.0126**, `max_depth` **0.0115**, `n_estimators` 0.0034, `subsample` 0.0021. Searched as pairs, `max_depth`×`learning_rate` reaches 0.9491, beating every other pair. Boundary checked too — extending to depth {3,5,8,12} × lr {0.1,0.2,0.3,0.5} scores *worse* everywhere (0.9375 at depth 8, 0.9339 at depth 12/lr 0.2), so the corner optimum is a real interior peak, not a grid wall. The scan itself is **not** in the notebook (it would look like a 4-parameter search and violate the cap); the numbers live here and in the §5.2 markdown | S6 |
+| 18 | **Tuning improved CV and regressed on test — report it, don't bury it** | Best CV F1 0.9426 → **0.9491** (+0.65pp) at `max_depth=5, learning_rate=0.2`. Test: F1 0.9474 → 0.9421, accuracy −0.60pp, precision −1.41pp, recall **+0.33pp**, train−test gap 0.0013 → **0.0346** (27×). Mean train F1 0.9489 → 0.9786. Same failure mode as RandomForest in §4.2: the higher score is memorisation. Both moves are ≈1 SE, so the claim is "tuning produced no real improvement", not "tuning made it worse". **Do not swap back to the untuned model on the strength of the test table** — that is selecting on the test set, the exact error §5.1 avoided when choosing `k`. If it is swapped, the reason must be the train−test gap, which is visible without test metrics | S6 |
+| 19 | **The decision threshold, not the hyperparameters, is the lever for the recall/precision trade** | Hyperparameters move precision and recall together and unpredictably — S6 is the proof. `predict_proba` with a moved threshold trades them against each other on purpose, which is what a recall-prioritised brief actually calls for. S7 picks the threshold by CV on the training split and reports it once on test. This is also what makes §1's cost argument operational instead of decorative | S6 |
 | 16 | **Feature selection held performance; it did not improve it** | GB on 16 features vs 30: F1 0.9474 vs 0.9475, accuracy identical at 0.9462, recall −0.0017, precision +0.0015. Do **not** claim selection made the model better. The two real gains are the train−test gap (0.0062 → **0.0013**, 5× tighter) and 14 fewer inputs for the Streamlit user. Note the cut is flat, not knife-edge: k=13 scores 0.9409 against a 0.9410 threshold, and the curve is level from ~13 to 30 — claiming 16 is *optimal* would be false precision | S5 |
 
 ## Open questions / blockers

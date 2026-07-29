@@ -4,3 +4,23 @@ __pycache__/
 
 # Submission bundle — rebuilt at S9, never source
 *.zip
+
+# --- Kept locally, deliberately not in the repo ---------------------------------
+# The repo is a submission artefact: notebook, app, pinned deps, model artefacts and
+# the dataset the notebook loads. Everything below is working material that still
+# lives on disk and is still needed to develop this — it just isn't a deliverable.
+
+# Working notes and session state (PROGRESS.md is the dev log — read it first)
+PROGRESS.md
+CLAUDE.md
+PHISHGUARD_GUIDELINE.md
+
+# TP course material — the lecturer's own documents. Not mine to redistribute,
+# especially once this repo goes public at S9.
+CAI2C08 MLDP Apr 2026 Sem - Project Specification (1).pdf
+MLDP Program Codes Submission Template.ipynb
+
+# The wrong ARFF from the same UCI download: @relation test, 2,456 rows, and it
+# encodes the binary features as {0,1} instead of {-1,1}. Loading it would silently
+# shift every feature's meaning with no error. Never used — see the notebook §2.1.
+.old.arff

@@ -17,9 +17,9 @@ Late: <1 day −10% of 100 · 1–2 days −20% · ≥2 days zero.
 
 ## Current state
 
-**Stage:** S7 — final evaluation, **code done, my interpretations still to write**
-**Last commit:** see `git log -1` (S7 final evaluation)
-**Working files:** `PhishGuard.ipynb`, `requirements.txt`, `PROGRESS.md`, `CLAUDE.md`
+**Stage:** S8 — Streamlit app **written and tested locally; NOT YET DEPLOYED (mine to do)**
+**Last commit:** see `git log -1` (S8 app.py)
+**Working files:** `PhishGuard.ipynb`, `app.py`, `requirements.txt`, `PROGRESS.md`, `CLAUDE.md`
 
 Standalone git repo initialised here on branch `main`, author `TharHtet-Zaw`
 <htetthar2003@gmail.com> (repo-local config; the machine has no global git identity).
@@ -38,6 +38,15 @@ now the only thing standing between here and a finished notebook.
 
 A full top-to-bottom run now takes ~2 min: the §5.1 CV sweep is 450 model fits (k = 1..30
 × 3 models × 5 folds) and accounts for ~100s of it.
+
+`app.py` reads **everything** from `artifacts/final_model.pkl` — model, feature list in
+training column order, threshold, and the test metrics shown in the sidebar. It restates
+none of them, so the app cannot drift from the notebook. Re-run §5.3 and the app updates.
+
+Verified headlessly with Streamlit's own `AppTest` harness (script in the session
+scratchpad, not committed): initial no-assessment state, all three presets, live
+re-scoring when an answer changes, Clear, and all five validation paths on the paste box.
+There is no pytest suite in the repo — re-run that script if `app.py` changes.
 
 Verify the notebook runs with the scratchpad runner `run_nb.py` (execs every code cell in
 one namespace, reports the first failure) — `nbconvert` is deliberately **not** in
@@ -66,11 +75,17 @@ Two tracks, in parallel — the writing is mine, the code is not:
    hard-coded to `GradientBoosting`. If the §4.2 argument lands on a different model,
    change that one constant and re-run §5.1 onward — the chosen `k` is model-specific
    (16 for GB, 21 for RF, 8 for LR).
-2. **Next code stage: S8 — the Streamlit app, and it is the schedule risk.** `app.py`
-   loads `artifacts/final_model.pkl`, which already carries the model, the 16-feature
-   list *in training column order*, and the threshold. 16 inputs, input validation with
-   user-facing errors, then deploy to Streamlit Community Cloud from the private repo and
-   record the link below. Then S9 (Word doc, screenshots, zip).
+2. **Mine, and now the only thing blocking S8: deploy the app.** `app.py` is written,
+   tested and pushed. Go to share.streamlit.io → New app → `TharHtet-Zaw/phishguard`,
+   branch `main`, main file `app.py`. It deploys from a private repo fine. Then record
+   the URL in §Links below and take the three required screenshots straight from the
+   deployed app — **use the "Borderline example" button for shots 2 and 3**: it loads a
+   real test-set row at 5.2%, and changing its HTTPS answer to "No HTTPS" flips the
+   verdict to 96.8%, which is exactly the "prediction changes when the selection
+   changes" evidence the rubric asks for.
+3. **Next code stage: none — all notebook and app code is written.** What is left is
+   S9: the Word doc from the template, the 3 app screenshots, the git-history
+   screenshots, and the zip.
 
 ---
 
@@ -111,6 +126,8 @@ Tick only when committed. Each stage = one commit, message in the format
       until I write §5 metric selection + §5.3._
 - [ ] **S8 Streamlit app** — `app.py`, inputs = selected features only, input
       validation + user-facing error messages. Deployed, link recorded below.
+      _Code committed and tested locally. **Not tickable until it is actually deployed**
+      and the link is in §Links — that half is mine and needs my Streamlit account._
 - [ ] **S9 Submission** — Word doc (template), 3 screenshots, git-history screenshots,
       zip as `<Name in TP-LMS>_2503051A.zip`.
 
@@ -174,6 +191,9 @@ session boundary, not just the code.
 | 17 | **The two hyperparameters were chosen by measurement, not by habit** | The spec caps tuning at 2 parameters × 3 values, so *which two* is the decision. Scanned one-at-a-time on the same CV folds, everything else at default: `learning_rate` spread **0.0126**, `max_depth` **0.0115**, `n_estimators` 0.0034, `subsample` 0.0021. Searched as pairs, `max_depth`×`learning_rate` reaches 0.9491, beating every other pair. Boundary checked too — extending to depth {3,5,8,12} × lr {0.1,0.2,0.3,0.5} scores *worse* everywhere (0.9375 at depth 8, 0.9339 at depth 12/lr 0.2), so the corner optimum is a real interior peak, not a grid wall. The scan itself is **not** in the notebook (it would look like a 4-parameter search and violate the cap); the numbers live here and in the §5.2 markdown | S6 |
 | 18 | **Tuning improved CV and regressed on test — report it, don't bury it** | Best CV F1 0.9426 → **0.9491** (+0.65pp) at `max_depth=5, learning_rate=0.2`. Test: F1 0.9474 → 0.9421, accuracy −0.60pp, precision −1.41pp, recall **+0.33pp**, train−test gap 0.0013 → **0.0346** (27×). Mean train F1 0.9489 → 0.9786. Same failure mode as RandomForest in §4.2: the higher score is memorisation. Both moves are ≈1 SE, so the claim is "tuning produced no real improvement", not "tuning made it worse". **Do not swap back to the untuned model on the strength of the test table** — that is selecting on the test set, the exact error §5.1 avoided when choosing `k`. If it is swapped, the reason must be the train−test gap, which is visible without test metrics | S6 |
 | 19 | **The decision threshold, not the hyperparameters, is the lever for the recall/precision trade** | Hyperparameters move precision and recall together and unpredictably — S6 is the proof. `predict_proba` with a moved threshold trades them against each other on purpose, which is what a recall-prioritised brief actually calls for. S7 picks the threshold by CV on the training split and reports it once on test. This is also what makes §1's cost argument operational instead of decorative | S6 |
+| 22 | **The app restates nothing — it reads model, feature list, threshold and headline metrics out of `final_model.pkl`** | Any constant duplicated between `app.py` and the notebook is a constant that will silently go stale when §5.x is re-run. Column *order* especially: a mismatch there produces no error, just wrong answers. The pickle is the single source of truth, and `app.py` refuses to start with a named, actionable error if the file is missing, unreadable, missing a key, or lists a feature the app has no question for | S8 |
+| 23 | **Validation lives on the paste box, because that is the only place invalid input is possible** | The 16 dropdowns cannot produce an out-of-range value, so "input validation" there would be theatre. The Advanced paste box can, and it checks: empty, wrong count, non-numeric, and codes outside the level set that specific feature actually uses (e.g. `0` is valid for `URL_Length`, invalid for `Page_Rank`). Each failure names the feature and lists what it accepts | S8 |
+| 24 | **Third preset is a real borderline test row, not a hand-built one** | The two extreme presets score 0.0% and 100%, so nothing visible changes when a single answer is edited — which makes the rubric's "prediction changes when inputs change" screenshot weak. The borderline preset is an actual held-out test row (truly legitimate) the model puts at **5.2%**; changing HTTPS alone takes it to **96.8%** and flips the verdict. Real row, real flip, one click | S8 |
 | 20 | **Operating point: threshold 0.08, from `FN_TO_FP_COST = 5`** | Chosen on out-of-fold *training* probabilities (`cross_val_predict`), never on test — same discipline as the §5.1 `k` choice. Test result: recall 0.9421 → **0.9901** (35 → **6** of 604 phishing sites missed), precision 0.9421 → 0.8592 (35 → 98 false alarms), accuracy 0.9402 → 0.9111. Sensitivity is in the notebook and matters at the demo: 1:1 → t=0.51 (i.e. sklearn's default is what "no asymmetry" gives), 3:1 → t=0.27, 10:1 → t=0.05. The 5 is an *assumption from §1*, not something the data supports — say so before being asked | S7 |
 | 21 | **Two feature encodings run backwards from the dataset documentation** | `Domain_registeration_length` codes 1 as ">1 year registered", the nominally legitimate level, but that level is **60.2%** phishing vs 36.4% for the short-registration level. `SSLfinal_State` is non-monotone: the "suspicious" middle level 0 is **98.2%** phishing, worse than "no HTTPS" at 85.8%. Both hold on the full 11,055 rows, so it is not a dedup artefact. Found via the §5.3 smoke-test row, which is built from measured per-level phishing rates rather than by hand — which is why it surfaced at all. Retrospectively justifies Decision #6 | S7 |
 | 16 | **Feature selection held performance; it did not improve it** | GB on 16 features vs 30: F1 0.9474 vs 0.9475, accuracy identical at 0.9462, recall −0.0017, precision +0.0015. Do **not** claim selection made the model better. The two real gains are the train−test gap (0.0062 → **0.0013**, 5× tighter) and 14 fewer inputs for the Streamlit user. Note the cut is flat, not knife-edge: k=13 scores 0.9409 against a 0.9410 threshold, and the curve is level from ~13 to 30 — claiming 16 is *optimal* would be false precision | S5 |

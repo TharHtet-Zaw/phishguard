@@ -17,8 +17,8 @@ Late: <1 day −10% of 100 · 1–2 days −20% · ≥2 days zero.
 
 ## Current state
 
-**Stage:** S4 — baselines, **code done, my interpretations still to write**
-**Last commit:** see `git log -1` (S3 cleaning + S4 baselines)
+**Stage:** S5 — feature selection, **code done, my interpretations still to write**
+**Last commit:** see `git log -1` (S5 feature selection)
 **Working files:** `PhishGuard.ipynb`, `requirements.txt`, `PROGRESS.md`, `CLAUDE.md`
 
 Standalone git repo initialised here on branch `main`, author `TharHtet-Zaw`
@@ -29,10 +29,14 @@ This folder is git-ignored by the vault repo so the two never collide.
 recreate with `python -m venv .venv && ./.venv/Scripts/python.exe -m pip install -r
 requirements.txt`). Run the notebook with the `.venv` kernel.
 
-`PhishGuard.ipynb` (61 cells) is built on the submission template's numbering. All code
-through §4.2 (load → EDA → clean → split → baselines) is written and **verified to run
-top-to-bottom**; every analysis/rationale cell is a `> **TODO (my own words):**` prompt —
-those are mine to write, not Claude's. Section 5 is still `## TODO` code stubs.
+`PhishGuard.ipynb` (64 cells) is built on the submission template's numbering. All code
+through §5.1 (load → EDA → clean → split → baselines → feature selection) is written and
+**verified to run top-to-bottom**; every analysis/rationale cell is a
+`> **TODO (my own words):**` prompt — those are mine to write, not Claude's. §5.2 tuning
+and §5.3 final model are still `## TODO` code stubs.
+
+A full top-to-bottom run now takes ~2 min: the §5.1 CV sweep is 450 model fits (k = 1..30
+× 3 models × 5 folds) and accounts for ~100s of it.
 
 Verify the notebook runs with the scratchpad runner `run_nb.py` (execs every code cell in
 one namespace, reports the first failure) — `nbconvert` is deliberately **not** in
@@ -48,13 +52,18 @@ again, re-check before trusting an id-targeted edit.
 
 Two tracks, in parallel — the writing is mine, the code is not:
 
-1. **Mine (blocks S1–S4 sign-off):** write the `TODO (my own words)` cells, all of which
+1. **Mine (blocks S1–S5 sign-off):** write the `TODO (my own words)` cells, all of which
    are now pre-loaded with the actual measured findings — §1 business framing +
    assumptions, §2.2 cardinality, §2.3.1.1 class balance, §2.3.1.2 feature
-   interpretation, §2.3.2 correlation, §3.1 duplicate decision, §4.2 model comparison.
-2. **Next code stage: S5** — feature selection (RF importances × mutual information) on
-   the canonical deduplicated split. Prediction to check: `Favicon`, `popUpWidnow` and
-   `Iframe` should rank last (Decision #8). Then S6 tuning, S7 final eval.
+   interpretation, §2.3.2 correlation, §3.1 duplicate decision, §4.2 model comparison,
+   §5.1 feature-selection rationale (10 marks — the largest single row).
+   **§4.2 is now load-bearing for code, not just prose:** `SELECTED_MODEL` in §5.1 is
+   hard-coded to `GradientBoosting`. If the §4.2 argument lands on a different model,
+   change that one constant and re-run §5.1 onward — the chosen `k` is model-specific
+   (16 for GB, 21 for RF, 8 for LR).
+2. **Next code stage: S6** — `RandomizedSearchCV` on GradientBoosting over the 16
+   selected features. Exactly 2 hyperparameters, ≤3 values each (hard spec constraint).
+   Then S7 final eval, S8 Streamlit app (inputs = the 16 selected features only).
 
 ---
 
@@ -82,6 +91,8 @@ Tick only when committed. Each stage = one commit, message in the format
       quantitative + qualitative comparison._
 - [ ] **S5 Feature selection** — RF importances × `SelectKBest(mutual_info_classif)`,
       cross-checked. Re-run the 3 models on the reduced set. Before/after table.
+      _Code committed and verified. 30 → **16** features, chosen by a 1-SE rule on 5-fold
+      CV F1 inside the training split. Not tickable until I write the §5.1 rationale._
 - [ ] **S6 Tuning** — `RandomizedSearchCV`, exactly 2 hyperparameters, ≤3 values each,
       on the selected model. Tuned vs untuned table.
 - [ ] **S7 Final evaluation** — precision/recall/F1/confusion matrix, metric
@@ -101,12 +112,15 @@ Anything expensive gets written to `artifacts/` so a resumed session never re-ru
 | --- | --- | --- |
 | `artifacts/feature_level_rates.csv` | S2 | per (feature, level): support + phishing rate |
 | `artifacts/baseline_metrics.csv` | S4 | all-30-feature test metrics, 4 models + dummy |
-| `artifacts/selected_features.json` | S5 | final feature list + why each survived |
+| `artifacts/feature_ranking.csv` | S5 | per feature: RF importance + std, MI, both ranks |
+| `artifacts/feature_sweep.csv` | S5 | CV recall/F1 (+SE) for k=1..30 × 3 models |
+| `artifacts/selected_features.json` | S5 | final feature list, the selection rule, dropped list |
 | `artifacts/reduced_metrics.csv` | S5 | same models on reduced set (before/after pair) |
 | `artifacts/search_results.csv` | S6 | full `cv_results_` table from RandomizedSearchCV |
 | `artifacts/final_model.pkl` | S7 | fitted model the Streamlit app loads |
 
-_Exists: `feature_level_rates.csv`._
+_Exists: `feature_level_rates.csv`, `baseline_metrics.csv`, `feature_ranking.csv`,
+`feature_sweep.csv`, `selected_features.json`, `reduced_metrics.csv`._
 
 ## Links
 
@@ -141,15 +155,20 @@ session boundary, not just the code.
 | 11 | **Deduplication flips the majority class** | Kept = 55.7% legitimate; deduped = 51.6% *phishing*. So `DummyClassifier` flips from phishing recall 0.00 to **1.00** (accuracy 0.52). A baseline with perfect recall is the cleanest argument for reporting precision/recall/F1 together instead of optimising recall alone — use it in §5 | S4 |
 | 12 | `pos_label=-1` **everywhere** in metrics | "Positive" must mean *phishing*, the class whose misses are expensive. sklearn defaults to `1`, which here is *legitimate* — so an unset `pos_label` silently reports recall for the wrong class and the whole §1 cost argument stops matching the numbers | S4 |
 | 8 | **Three features are provably dead**: `Favicon`, `popUpWidnow`, `Iframe` | Their phishing rate equals the base rate at *every* level (spread 0.000, 0.0001, 0.006) — zero univariate signal. Predicts what S5 should find; if RF importance or mutual information disagrees, that needs explaining, not ignoring. Caveat for the demo: flat ≠ skewed. `Prefix_Suffix` is 87% one level and still has spread 0.51 | S2 |
+| 13 | **`k` is chosen by a 1-SE rule on CV inside the training split, never by test score** | The two rankings order the features; they do not say where to cut. Re-scoring the test set at each `k` would pick the cut that flatters the test set, and the before/after table would then be comparing a tuned "after" against an untuned "before". So: 5-fold CV *within* train, take the smallest `k` within one standard error of the best. Result **k = 16**, F1 0.9452 best at k=30, SE 0.0042, threshold 0.9410 | S5 |
+| 14 | **Cut on F1, not on recall** — even though the project prioritises recall | By recall alone the same rule keeps only **k = 5** (CV recall 0.9354 at k=5 vs 0.9395 at k=30). Features 6–16 buy *precision*, not recall. Recall alone is gameable — §4.1's dummy scores 1.000 on it — so a feature set sized to maximise recall is sized to maximise a number a useless model already wins. This is the S5 answer to "why not just take five features?" | S5 |
+| 15 | **S5 confirmed the S2 prediction, and the prediction was recorded first** | `Favicon` (mean rank 24.5), `popUpWidnow` (24.0), `Iframe` (29.0) all landed in the bottom seven of 30 — Decision #8 was written at S2 from conditional phishing rates alone and survived two model-based rankings. The two rankings agree overall (Spearman ρ = **0.899**); the four real disagreements (`Submitting_to_email` RF 21 vs MI 30, `Shortining_Service` 24 vs 15, `Abnormal_URL` 23 vs 14, `Statistical_report` 19 vs 12) are all below the cut, so nothing rides on them | S5 |
+| 16 | **Feature selection held performance; it did not improve it** | GB on 16 features vs 30: F1 0.9474 vs 0.9475, accuracy identical at 0.9462, recall −0.0017, precision +0.0015. Do **not** claim selection made the model better. The two real gains are the train−test gap (0.0062 → **0.0013**, 5× tighter) and 14 fewer inputs for the Streamlit user. Note the cut is flat, not knife-edge: k=13 scores 0.9409 against a 0.9410 threshold, and the curve is level from ~13 to 30 — claiming 16 is *optimal* would be false precision | S5 |
 
 ## Open questions / blockers
 
 1. ~~GitHub repo strategy~~ — resolved: standalone private repo, pushed 28 Jul. `gh` was
    already installed and authenticated; the earlier note claiming otherwise was stale.
-2. **Schedule risk — as of 28 Jul there are 3 days to the 31 Jul 5pm Program Code
-   deadline.** S5–S9 outstanding including a *deployed* Streamlit app and the Word doc,
+2. **Schedule risk — as of 29 Jul there are 2 days to the 31 Jul 5pm Program Code
+   deadline.** S6–S9 outstanding including a *deployed* Streamlit app and the Word doc,
    plus every `TODO (my own words)` cell. The external dependency (GitHub) is now
-   cleared, so the critical path is my writing plus the S8 deploy.
+   cleared, so the critical path is my writing plus the S8 deploy. S6 and S7 are small;
+   **S8 is the one that can eat a day** — start the deploy before the prose is finished.
 3. **Exact student name as it appears in TP-LMS** — still unconfirmed. Needed for the zip
    filename (`<TP-LMS name>_2503051A.zip`) and the Declaration of Originality in *both*
    the notebook and the Word doc. Likely "Thar Htet Zaw" (from the GitHub handle

@@ -1,0 +1,39 @@
+{
+  "selected_model": "GradientBoosting",
+  "k": 16,
+  "selection_rule": "smallest k within 1 SE of best 5-fold CV F1 on the training split, features ordered by mean(RF importance rank, mutual information rank)",
+  "features": [
+    "SSLfinal_State",
+    "URL_of_Anchor",
+    "having_Sub_Domain",
+    "Prefix_Suffix",
+    "web_traffic",
+    "Links_in_tags",
+    "SFH",
+    "Request_URL",
+    "Links_pointing_to_page",
+    "Domain_registeration_length",
+    "having_IP_Address",
+    "Google_Index",
+    "age_of_domain",
+    "Statistical_report",
+    "Page_Rank",
+    "URL_Length"
+  ],
+  "dropped": [
+    "DNSRecord",
+    "Abnormal_URL",
+    "Redirect",
+    "Shortining_Service",
+    "having_At_Symbol",
+    "HTTPS_token",
+    "popUpWidnow",
+    "double_slash_redirecting",
+    "Favicon",
+    "Submitting_to_email",
+    "port",
+    "on_mouseover",
+    "RightClick",
+    "Iframe"
+  ]
+}

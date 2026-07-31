@@ -14,13 +14,30 @@ __pycache__/
 PROGRESS.md
 CLAUDE.md
 PHISHGUARD_GUIDELINE.md
+TODO.txt
+SUBMISSION_CHECKLIST.txt
+
+# S9 app + git-history screenshots. They go into the .docx and the zip, never the
+# repo — they show my browser session (tabs, bookmarks) and the repo goes public.
+Screenshots/
 
 # TP course material — the lecturer's own documents. Not mine to redistribute,
 # especially once this repo goes public at S9.
 CAI2C08 MLDP Apr 2026 Sem - Project Specification (1).pdf
 MLDP Program Codes Submission Template.ipynb
+MLDP Program Codes Submission Declaration.docx
+
+# My filled-in copy of the declaration. Goes in the submission zip, never in the
+# repo: it carries my full name and a signature image, and the repo goes public at
+# S9. Built from the template above with scripts/, not by hand.
+MLDP Program Codes Submission_2503051A.docx
 
 # The wrong ARFF from the same UCI download: @relation test, 2,456 rows, and it
 # encodes the binary features as {0,1} instead of {-1,1}. Loading it would silently
 # shift every feature's meaning with no error. Never used — see the notebook §2.1.
 .old.arff
+
+# Regenerates the submission .docx from TP's blank template. Local tooling, not a
+# deliverable. Destructive: rebuilds from blank, so do not run it after screenshots
+# have been pasted into the .docx by hand.
+build_docx.py
